@@ -49,10 +49,6 @@ function shuffle<T>(items: T[]) {
 async function main() {
   console.log('Starting DukaanBook demo seed...');
 
-  // --------------------------------------------------
-  // 1. CLEAR EXISTING DEMO DATA
-  // --------------------------------------------------
-
   console.log('Clearing existing data...');
 
   await prisma.saleItem.deleteMany();
@@ -63,10 +59,6 @@ async function main() {
   await prisma.category.deleteMany();
   await prisma.user.deleteMany();
   await prisma.businessProfile.deleteMany();
-
-  // --------------------------------------------------
-  // 2. BUSINESS
-  // --------------------------------------------------
 
   const business = await prisma.businessProfile.create({
     data: {
@@ -79,10 +71,6 @@ async function main() {
   });
 
   console.log('Business created:', business.name);
-
-  // --------------------------------------------------
-  // 3. USERS
-  // --------------------------------------------------
 
   const ownerEmail =
     process.env.SEED_OWNER_EMAIL ?? 'owner@demo.local';
@@ -148,10 +136,6 @@ async function main() {
 
   console.log(`Users created: ${cashiers.length + 1}`);
 
-  // --------------------------------------------------
-  // 4. CATEGORIES
-  // --------------------------------------------------
-
   const categoryNames = [
     'Beverages',
     'Snacks',
@@ -172,6 +156,7 @@ async function main() {
       data: {
         name,
         slug: slugify(name),
+        businessProfileId: business.id,
       },
     });
 
@@ -183,10 +168,6 @@ async function main() {
   );
 
   console.log(`Categories created: ${categories.length}`);
-
-  // --------------------------------------------------
-  // 5. PRODUCTS
-  // --------------------------------------------------
 
   const productTemplates = [
     ['Cola 500ml', 120, 75, 'Beverages'],
@@ -269,7 +250,11 @@ async function main() {
 
   const products = [];
 
-  for (let index = 0; index < productTemplates.length; index++) {
+  for (
+    let index = 0;
+    index < productTemplates.length;
+    index++
+  ) {
     const [name, price, costPrice, categoryName] =
       productTemplates[index];
 
@@ -292,6 +277,7 @@ async function main() {
 
     const product = await prisma.product.create({
       data: {
+        businessProfileId: business.id,
         sku: `${prefix}-${String(index + 1).padStart(3, '0')}`,
         barcode: `8901${String(index + 1).padStart(9, '0')}`,
         name,
@@ -323,10 +309,6 @@ async function main() {
 
   console.log(`Products created: ${products.length}`);
 
-  // --------------------------------------------------
-  // 6. SALES
-  // --------------------------------------------------
-
   console.log('Creating sales history...');
 
   const saleCount = 320;
@@ -336,7 +318,11 @@ async function main() {
     () => randomDateWithinDays(30)
   ).sort((a, b) => a.getTime() - b.getTime());
 
-  for (let saleIndex = 0; saleIndex < saleCount; saleIndex++) {
+  for (
+    let saleIndex = 0;
+    saleIndex < saleCount;
+    saleIndex++
+  ) {
     const cashier = randomItem(cashiers);
 
     const itemCount = randInt(1, 5);
@@ -379,6 +365,7 @@ async function main() {
 
     const sale = await prisma.sale.create({
       data: {
+        businessProfileId: business.id,
         saleNumber,
         cashierId: cashier.id,
         subtotal,
@@ -392,7 +379,10 @@ async function main() {
           ? SaleStatus.REFUNDED
           : SaleStatus.COMPLETED,
         refundedAt: isRefunded
-          ? new Date(createdAt.getTime() + randInt(1, 48) * 60 * 60 * 1000)
+          ? new Date(
+              createdAt.getTime() +
+                randInt(1, 48) * 60 * 60 * 1000
+            )
           : null,
         refundReason: isRefunded
           ? randomItem([
@@ -437,10 +427,6 @@ async function main() {
 
   console.log(`Sales created: ${saleCount}`);
 
-  // --------------------------------------------------
-  // 7. EXTRA STOCK MOVEMENTS
-  // --------------------------------------------------
-
   console.log('Creating inventory activity...');
 
   for (let index = 0; index < 80; index++) {
@@ -481,10 +467,6 @@ async function main() {
       },
     });
   }
-
-  // --------------------------------------------------
-  // 8. AUDIT LOGS
-  // --------------------------------------------------
 
   console.log('Creating audit history...');
 
@@ -543,10 +525,6 @@ async function main() {
   }
 
   console.log('Audit logs created: 180');
-
-  // --------------------------------------------------
-  // DONE
-  // --------------------------------------------------
 
   console.log('\n======================================');
   console.log('DUKAANBOOK DEMO DATABASE READY');

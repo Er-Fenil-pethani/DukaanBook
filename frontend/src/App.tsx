@@ -20,6 +20,7 @@ import TopProgressBar from '@/components/TopProgressBar';
 import SplashScreen from '@/components/SplashScreen';
 import { useAuthBootstrap } from '@/hooks/useAuthBootstrap';
 import RouteErrorBoundary from '@/components/RouteErrorBoundary';
+import RegisterPage from '@/pages/RegisterPage';
 
 export default function App() {
   const bootstrapped = useAuthBootstrap();
@@ -35,6 +36,7 @@ export default function App() {
       <RouteErrorBoundary>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route
             element={
               <RequireAuth>

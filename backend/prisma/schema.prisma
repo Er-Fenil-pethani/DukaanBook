@@ -9,21 +9,22 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
+  id                String           @id @default(uuid())
+  email             String           @unique
   password          String
   name              String
-  role              Role     @default(CASHIER)
-  suspended         Boolean  @default(false)
+  role              Role             @default(CASHIER)
+  suspended         Boolean          @default(false)
   businessProfileId String?
-  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id])
+  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
   sales             Sale[]
   stockMovements    StockMovement[]
   auditLogs         AuditLog[]
-  createdAt         DateTime @default(now())
+  createdAt         DateTime         @default(now())
 
   @@index([role])
   @@index([email])
+  @@index([businessProfileId])
 }
 
 enum Role {
@@ -32,47 +33,64 @@ enum Role {
 }
 
 model BusinessProfile {
-  id        String   @id @default(uuid())
-  name      String
-  address   String?
-  phone     String?
-  currency  String   @default("PKR")
-  taxRate   Decimal  @db.Decimal(5, 2) @default(0)
-  logoUrl   String?
-  users     User[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String      @id @default(uuid())
+  name       String
+  address    String?
+  phone      String?
+  currency   String      @default("PKR")
+  taxRate    Decimal     @db.Decimal(5, 2) @default(0)
+  logoUrl    String?
+  users      User[]
+  categories Category[]
+  products   Product[]
+  sales      Sale[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model Category {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  slug      String    @unique
-  products  Product[]
-  createdAt DateTime  @default(now())
+  id                String          @id @default(uuid())
+  name              String
+  slug              String
+  businessProfileId String
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+  products          Product[]
+  createdAt         DateTime        @default(now())
+
+  @@unique([businessProfileId, name])
+  @@unique([businessProfileId, slug])
+  @@index([businessProfileId])
 }
 
 model Product {
   id                String          @id @default(uuid())
-  sku               String          @unique
-  barcode           String?         @unique
+  sku               String
+  barcode           String?
   name              String
   description       String?         @db.Text
   price             Decimal         @db.Decimal(10, 2)
   costPrice         Decimal         @db.Decimal(10, 2)
   stock             Int             @default(0)
   lowStockThreshold Int             @default(10)
+
+  businessProfileId String
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
   categoryId        String
   category          Category        @relation(fields: [categoryId], references: [id])
+
   imageUrl          String?
   active            Boolean         @default(true)
+
   stockMovements    StockMovement[]
   saleItems         SaleItem[]
+
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  @@index([sku])
-  @@index([barcode])
+  @@unique([businessProfileId, sku])
+  @@unique([businessProfileId, barcode])
+  @@index([businessProfileId])
   @@index([categoryId])
   @@index([active, stock])
 }
@@ -80,7 +98,7 @@ model Product {
 model StockMovement {
   id        String            @id @default(uuid())
   productId String
-  product   Product           @relation(fields: [productId], references: [id])
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   type      StockMovementType
   quantity  Int
   reason    String
@@ -102,20 +120,30 @@ enum StockMovementType {
 }
 
 model Sale {
-  id            String        @id @default(uuid())
-  saleNumber    String        @unique
-  cashierId     String
-  cashier       User          @relation(fields: [cashierId], references: [id])
-  items         SaleItem[]
-  subtotal      Decimal       @db.Decimal(10, 2)
-  taxAmount     Decimal       @db.Decimal(10, 2)
-  total         Decimal       @db.Decimal(10, 2)
-  paymentMethod PaymentMethod
-  status        SaleStatus    @default(COMPLETED)
-  refundedAt    DateTime?
-  refundReason  String?
-  createdAt     DateTime      @default(now())
+  id                String          @id @default(uuid())
+  saleNumber        String
 
+  businessProfileId String
+  businessProfile   BusinessProfile @relation(fields: [businessProfileId], references: [id], onDelete: Cascade)
+
+  cashierId         String
+  cashier           User            @relation(fields: [cashierId], references: [id])
+
+  items             SaleItem[]
+
+  subtotal          Decimal         @db.Decimal(10, 2)
+  taxAmount         Decimal         @db.Decimal(10, 2)
+  total             Decimal         @db.Decimal(10, 2)
+
+  paymentMethod     PaymentMethod
+  status            SaleStatus      @default(COMPLETED)
+
+  refundedAt        DateTime?
+  refundReason      String?
+  createdAt         DateTime        @default(now())
+
+  @@unique([businessProfileId, saleNumber])
+  @@index([businessProfileId])
   @@index([cashierId, createdAt])
   @@index([status])
   @@index([createdAt])
@@ -133,10 +161,13 @@ enum PaymentMethod {
 
 model SaleItem {
   id           String  @id @default(uuid())
+
   saleId       String
   sale         Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
   productId    String
   product      Product @relation(fields: [productId], references: [id])
+
   productName  String
   productPrice Decimal @db.Decimal(10, 2)
   quantity     Int
