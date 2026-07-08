@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
+  name              String
+  role              Role     @default(CASHIER)
+  suspended         Boolean  @default(false)
+  businessProfileId String?
+  businessProfile   BusinessProfile? @relation(fields: [businessProfileId], references: [id])
+  sales             Sale[]
+  stockMovements    StockMovement[]
+  auditLogs         AuditLog[]
+  createdAt         DateTime @default(now())
+
+  @@index([role])
+  @@index([email])
+}
+
+enum Role {
+  OWNER
+  CASHIER
+}
+
+model BusinessProfile {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  phone     String?
+  currency  String   @default("PKR")
+  taxRate   Decimal  @db.Decimal(5, 2) @default(0)
+  logoUrl   String?
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  sku               String          @unique
+  barcode           String?         @unique
+  name              String
+  description       String?         @db.Text
+  price             Decimal         @db.Decimal(10, 2)
+  costPrice         Decimal         @db.Decimal(10, 2)
+  stock             Int             @default(0)
+  lowStockThreshold Int             @default(10)
+  categoryId        String
+  category          Category        @relation(fields: [categoryId], references: [id])
+  imageUrl          String?
+  active            Boolean         @default(true)
+  stockMovements    StockMovement[]
+  saleItems         SaleItem[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([sku])
+  @@index([barcode])
+  @@index([categoryId])
+  @@index([active, stock])
+}
+
+model StockMovement {
+  id        String            @id @default(uuid())
+  productId String
+  product   Product           @relation(fields: [productId], references: [id])
+  type      StockMovementType
+  quantity  Int
+  reason    String
+  notes     String?
+  actorId   String
+  actor     User              @relation(fields: [actorId], references: [id])
+  createdAt DateTime          @default(now())
+
+  @@index([productId, createdAt])
+  @@index([type])
+}
+
+enum StockMovementType {
+  PURCHASE
+  SALE
+  RETURN
+  ADJUSTMENT
+  DAMAGE
+}
+
+model Sale {
+  id            String        @id @default(uuid())
+  saleNumber    String        @unique
+  cashierId     String
+  cashier       User          @relation(fields: [cashierId], references: [id])
+  items         SaleItem[]
+  subtotal      Decimal       @db.Decimal(10, 2)
+  taxAmount     Decimal       @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  status        SaleStatus    @default(COMPLETED)
+  refundedAt    DateTime?
+  refundReason  String?
+  createdAt     DateTime      @default(now())
+
+  @@index([cashierId, createdAt])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum SaleStatus {
+  COMPLETED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+model SaleItem {
+  id           String  @id @default(uuid())
+  saleId       String
+  sale         Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  productName  String
+  productPrice Decimal @db.Decimal(10, 2)
+  quantity     Int
+  lineTotal    Decimal @db.Decimal(10, 2)
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action])
+}

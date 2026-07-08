@@ -1,0 +1,181 @@
+@import '@fontsource/geist-sans/400.css';
+@import '@fontsource/geist-sans/500.css';
+@import '@fontsource/geist-sans/600.css';
+@import '@fontsource/geist-sans/700.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+  /* DukaanBook Light Theme */
+  --background: 220 33% 98%;
+  --foreground: 224 35% 12%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 224 35% 12%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 35% 12%;
+
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 30% 95%;
+  --secondary-foreground: 224 35% 18%;
+
+  --muted: 220 25% 95%;
+  --muted-foreground: 220 12% 45%;
+
+  --accent: 243 75% 96%;
+  --accent-foreground: 243 75% 55%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 22% 89%;
+  --input: 220 22% 89%;
+  --ring: 221 83% 53%;
+
+  --radius: 0.75rem;
+
+  --success: 160 84% 39%;
+  --warning: 38 92% 50%;
+}
+
+.dark {
+  /* DukaanBook Midnight Theme */
+  --background: 225 35% 7%;
+  --foreground: 220 25% 96%;
+
+  --card: 224 30% 10%;
+  --card-foreground: 220 25% 96%;
+
+  --popover: 224 30% 11%;
+  --popover-foreground: 220 25% 96%;
+
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 224 24% 15%;
+  --secondary-foreground: 220 20% 94%;
+
+  --muted: 224 22% 14%;
+  --muted-foreground: 220 12% 64%;
+
+  --accent: 243 45% 20%;
+  --accent-foreground: 239 84% 80%;
+
+  --destructive: 0 72% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 224 20% 18%;
+  --input: 224 20% 18%;
+  --ring: 217 91% 60%;
+
+  --success: 160 84% 45%;
+  --warning: 38 92% 55%;
+}
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-family: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'cv11' 1;
+  }
+  code,
+  pre,
+  kbd,
+  .font-mono {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: hsl(var(--card) / 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(217 91% 60% / 0.14);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.04),
+      0 12px 40px hsl(225 50% 2% / 0.18);
+  }
+
+  .glass-nav {
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid hsl(217 91% 60% / 0.12);
+  }
+}
+
+/* Subtle scrollbar that matches the theme */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+    background-clip: padding-box;
+  }
+}
+
+/* Print: 80mm thermal receipt — strip everything except the receipt */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  body {
+    background: white !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .receipt,
+  .receipt * {
+    visibility: visible;
+  }
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+  .receipt {
+    position: fixed !important;
+    inset: 0;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    color: black !important;
+    background: white !important;
+    font-family: 'Geist Mono', ui-monospace, monospace !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .receipt-modal,
+  .receipt-modal * {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
