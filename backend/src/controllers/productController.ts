@@ -5,10 +5,15 @@ import { Prisma, StockMovementType } from '@prisma/client';
 import { prisma } from '../config/prisma';
 import { AppError } from '../utils/AppError';
 import { writeAudit } from '../services/auditLog';
-import { processProductImage, removeFileIfExists } from '../services/imageUpload';
+import {
+  processProductImage,
+  removeFileIfExists,
+} from '../services/imageUpload';
 import { env } from '../config/env';
 
-type ValidatedReq<TQuery = unknown> = Request & { validatedQuery?: TQuery };
+type ValidatedReq<TQuery = unknown> = Request & {
+  validatedQuery?: TQuery;
+};
 
 interface ProductListQuery {
   search?: string;
@@ -19,55 +24,156 @@ interface ProductListQuery {
   pageSize: number;
 }
 
+async function getBusinessProfileId(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { businessProfileId: true },
+  });
+
+  if (!user?.businessProfileId) {
+    throw AppError.badRequest('Business profile not found');
+  }
+
+  return user.businessProfileId;
+}
+
 export async function listProducts(req: Request, res: Response) {
   const q = (req as ValidatedReq<ProductListQuery>).validatedQuery!;
-  const where: Prisma.ProductWhereInput = {};
+  const businessProfileId = await getBusinessProfileId(req.user!.id);
+
+  const where: Prisma.ProductWhereInput = {
+    businessProfileId,
+  };
+
   if (q.search) {
     where.OR = [
-      { name: { contains: q.search, mode: 'insensitive' } },
-      { sku: { contains: q.search, mode: 'insensitive' } },
-      { barcode: { contains: q.search, mode: 'insensitive' } },
+      {
+        name: {
+          contains: q.search,
+          mode: 'insensitive',
+        },
+      },
+      {
+        sku: {
+          contains: q.search,
+          mode: 'insensitive',
+        },
+      },
+      {
+        barcode: {
+          contains: q.search,
+          mode: 'insensitive',
+        },
+      },
     ];
   }
-  if (q.categoryId) where.categoryId = q.categoryId;
-  if (q.active !== undefined) where.active = q.active;
+
+  if (q.categoryId) {
+    where.categoryId = q.categoryId;
+  }
+
+  if (q.active !== undefined) {
+    where.active = q.active;
+  }
 
   let products = await prisma.product.findMany({
     where,
-    include: { category: { select: { id: true, name: true, slug: true } } },
-    orderBy: { createdAt: 'desc' },
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
     skip: (q.page - 1) * q.pageSize,
     take: q.pageSize,
   });
+
   if (q.lowStock) {
-    products = products.filter((p) => p.stock <= p.lowStockThreshold);
+    products = products.filter(
+      (product) => product.stock <= product.lowStockThreshold
+    );
   }
-  const total = await prisma.product.count({ where });
-  res.json({ products, page: q.page, pageSize: q.pageSize, total });
+
+  const total = await prisma.product.count({
+    where,
+  });
+
+  res.json({
+    products,
+    page: q.page,
+    pageSize: q.pageSize,
+    total,
+  });
 }
 
 export async function getProduct(req: Request, res: Response) {
   const { id } = req.params;
-  const product = await prisma.product.findUnique({
-    where: { id },
+  const businessProfileId = await getBusinessProfileId(req.user!.id);
+
+  const product = await prisma.product.findFirst({
+    where: {
+      id,
+      businessProfileId,
+    },
     include: {
-      category: { select: { id: true, name: true } },
+      category: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       stockMovements: {
         take: 50,
-        orderBy: { createdAt: 'desc' },
-        include: { actor: { select: { id: true, name: true, email: true } } },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
       },
     },
   });
-  if (!product) throw AppError.notFound('Product not found');
+
+  if (!product) {
+    throw AppError.notFound('Product not found');
+  }
+
   res.json({ product });
 }
 
-async function processUploadedFile(file: Express.Multer.File | undefined): Promise<string | undefined> {
-  if (!file) return undefined;
+async function processUploadedFile(
+  file: Express.Multer.File | undefined
+): Promise<string | undefined> {
+  if (!file) {
+    return undefined;
+  }
+
   const filename = `${randomUUID()}.jpg`;
-  const outputPath = path.join(env.UPLOAD_DIR, 'products', filename);
-  await processProductImage(file.buffer, outputPath, 800);
+
+  const outputPath = path.join(
+    env.UPLOAD_DIR,
+    'products',
+    filename
+  );
+
+  await processProductImage(
+    file.buffer,
+    outputPath,
+    800
+  );
+
   return `/uploads/products/${filename}`;
 }
 
@@ -84,13 +190,48 @@ export async function createProduct(req: Request, res: Response) {
     categoryId: string;
     active?: boolean;
   };
+
+  const businessProfileId = await getBusinessProfileId(req.user!.id);
   const imageUrl = await processUploadedFile(req.file);
 
-  const category = await prisma.category.findUnique({ where: { id: body.categoryId } });
-  if (!category) throw AppError.badRequest('Invalid categoryId');
+  const category = await prisma.category.findFirst({
+    where: {
+      id: body.categoryId,
+      businessProfileId,
+    },
+  });
+
+  if (!category) {
+    throw AppError.badRequest('Invalid categoryId');
+  }
+
+  const existingSku = await prisma.product.findFirst({
+    where: {
+      businessProfileId,
+      sku: body.sku,
+    },
+  });
+
+  if (existingSku) {
+    throw AppError.conflict('SKU already exists');
+  }
+
+  if (body.barcode) {
+    const existingBarcode = await prisma.product.findFirst({
+      where: {
+        businessProfileId,
+        barcode: body.barcode,
+      },
+    });
+
+    if (existingBarcode) {
+      throw AppError.conflict('Barcode already exists');
+    }
+  }
 
   const product = await prisma.product.create({
     data: {
+      businessProfileId,
       sku: body.sku,
       barcode: body.barcode || null,
       name: body.name,
@@ -122,7 +263,10 @@ export async function createProduct(req: Request, res: Response) {
     action: 'PRODUCT_CREATE',
     entityType: 'Product',
     entityId: product.id,
-    metadata: { sku: product.sku, name: product.name },
+    metadata: {
+      sku: product.sku,
+      name: product.name,
+    },
     ipAddress: req.ip,
   });
 
@@ -131,6 +275,7 @@ export async function createProduct(req: Request, res: Response) {
 
 export async function updateProduct(req: Request, res: Response) {
   const { id } = req.params;
+
   const body = req.body as Partial<{
     sku: string;
     barcode: string | null;
@@ -142,27 +287,94 @@ export async function updateProduct(req: Request, res: Response) {
     categoryId: string;
     active: boolean;
   }>;
-  const existing = await prisma.product.findUnique({ where: { id } });
-  if (!existing) throw AppError.notFound('Product not found');
+
+  const businessProfileId = await getBusinessProfileId(req.user!.id);
+
+  const existing = await prisma.product.findFirst({
+    where: {
+      id,
+      businessProfileId,
+    },
+  });
+
+  if (!existing) {
+    throw AppError.notFound('Product not found');
+  }
+
+  if (body.categoryId !== undefined) {
+    const category = await prisma.category.findFirst({
+      where: {
+        id: body.categoryId,
+        businessProfileId,
+      },
+    });
+
+    if (!category) {
+      throw AppError.badRequest('Invalid categoryId');
+    }
+  }
 
   const newImageUrl = await processUploadedFile(req.file);
+
   if (newImageUrl && existing.imageUrl) {
-    await removeFileIfExists(path.join(process.cwd(), existing.imageUrl.replace(/^\//, '')));
+    await removeFileIfExists(
+      path.join(
+        process.cwd(),
+        existing.imageUrl.replace(/^\//, '')
+      )
+    );
   }
 
   const data: Prisma.ProductUpdateInput = {};
-  if (body.sku !== undefined) data.sku = body.sku;
-  if (body.barcode !== undefined) data.barcode = body.barcode || null;
-  if (body.name !== undefined) data.name = body.name;
-  if (body.description !== undefined) data.description = body.description || null;
-  if (body.price !== undefined) data.price = new Prisma.Decimal(body.price);
-  if (body.costPrice !== undefined) data.costPrice = new Prisma.Decimal(body.costPrice);
-  if (body.lowStockThreshold !== undefined) data.lowStockThreshold = body.lowStockThreshold;
-  if (body.categoryId !== undefined) data.category = { connect: { id: body.categoryId } };
-  if (body.active !== undefined) data.active = body.active;
-  if (newImageUrl) data.imageUrl = newImageUrl;
 
-  const product = await prisma.product.update({ where: { id }, data });
+  if (body.sku !== undefined) {
+    data.sku = body.sku;
+  }
+
+  if (body.barcode !== undefined) {
+    data.barcode = body.barcode || null;
+  }
+
+  if (body.name !== undefined) {
+    data.name = body.name;
+  }
+
+  if (body.description !== undefined) {
+    data.description = body.description || null;
+  }
+
+  if (body.price !== undefined) {
+    data.price = new Prisma.Decimal(body.price);
+  }
+
+  if (body.costPrice !== undefined) {
+    data.costPrice = new Prisma.Decimal(body.costPrice);
+  }
+
+  if (body.lowStockThreshold !== undefined) {
+    data.lowStockThreshold = body.lowStockThreshold;
+  }
+
+  if (body.categoryId !== undefined) {
+    data.category = {
+      connect: {
+        id: body.categoryId,
+      },
+    };
+  }
+
+  if (body.active !== undefined) {
+    data.active = body.active;
+  }
+
+  if (newImageUrl) {
+    data.imageUrl = newImageUrl;
+  }
+
+  const product = await prisma.product.update({
+    where: { id },
+    data,
+  });
 
   await writeAudit({
     userId: req.user?.id,
@@ -178,17 +390,34 @@ export async function updateProduct(req: Request, res: Response) {
 
 export async function deleteProduct(req: Request, res: Response) {
   const { id } = req.params;
-  const existing = await prisma.product.findUnique({
-    where: { id },
-    include: { _count: { select: { saleItems: true } } },
+  const businessProfileId = await getBusinessProfileId(req.user!.id);
+
+  const existing = await prisma.product.findFirst({
+    where: {
+      id,
+      businessProfileId,
+    },
+    include: {
+      _count: {
+        select: {
+          saleItems: true,
+        },
+      },
+    },
   });
-  if (!existing) throw AppError.notFound('Product not found');
+
+  if (!existing) {
+    throw AppError.notFound('Product not found');
+  }
 
   if (existing._count.saleItems > 0) {
     const product = await prisma.product.update({
       where: { id },
-      data: { active: false },
+      data: {
+        active: false,
+      },
     });
+
     await writeAudit({
       userId: req.user?.id,
       action: 'PRODUCT_SOFT_DELETE',
@@ -196,15 +425,35 @@ export async function deleteProduct(req: Request, res: Response) {
       entityId: id,
       ipAddress: req.ip,
     });
-    res.json({ deleted: false, deactivated: true, product });
+
+    res.json({
+      deleted: false,
+      deactivated: true,
+      product,
+    });
+
     return;
   }
 
-  await prisma.stockMovement.deleteMany({ where: { productId: id } });
-  await prisma.product.delete({ where: { id } });
+  await prisma.stockMovement.deleteMany({
+    where: {
+      productId: id,
+    },
+  });
+
+  await prisma.product.delete({
+    where: { id },
+  });
+
   if (existing.imageUrl) {
-    await removeFileIfExists(path.join(process.cwd(), existing.imageUrl.replace(/^\//, '')));
+    await removeFileIfExists(
+      path.join(
+        process.cwd(),
+        existing.imageUrl.replace(/^\//, '')
+      )
+    );
   }
+
   await writeAudit({
     userId: req.user?.id,
     action: 'PRODUCT_DELETE',
@@ -212,24 +461,37 @@ export async function deleteProduct(req: Request, res: Response) {
     entityId: id,
     ipAddress: req.ip,
   });
+
   res.json({ deleted: true });
 }
 
 export async function adjustStock(req: Request, res: Response) {
   const { id } = req.params;
+
   const body = req.body as {
     type: 'PURCHASE' | 'RETURN' | 'ADJUSTMENT' | 'DAMAGE';
     quantity: number;
     reason: string;
     notes?: string | null;
   };
+
   const actorId = req.user!.id;
+  const businessProfileId = await getBusinessProfileId(actorId);
 
   const result = await prisma.$transaction(async (tx) => {
-    const product = await tx.product.findUnique({ where: { id } });
-    if (!product) throw AppError.notFound('Product not found');
+    const product = await tx.product.findFirst({
+      where: {
+        id,
+        businessProfileId,
+      },
+    });
+
+    if (!product) {
+      throw AppError.notFound('Product not found');
+    }
 
     const newStock = product.stock + body.quantity;
+
     if (newStock < 0) {
       throw AppError.badRequest(
         `Adjustment would result in negative stock (${product.stock} + ${body.quantity} = ${newStock})`
@@ -238,7 +500,9 @@ export async function adjustStock(req: Request, res: Response) {
 
     const updated = await tx.product.update({
       where: { id },
-      data: { stock: newStock },
+      data: {
+        stock: newStock,
+      },
     });
 
     const movement = await tx.stockMovement.create({
@@ -258,13 +522,20 @@ export async function adjustStock(req: Request, res: Response) {
         action: 'STOCK_ADJUST',
         entityType: 'Product',
         entityId: id,
-        metadata: { type: body.type, quantity: body.quantity, reason: body.reason },
+        metadata: {
+          type: body.type,
+          quantity: body.quantity,
+          reason: body.reason,
+        },
         ipAddress: req.ip,
       },
       tx
     );
 
-    return { product: updated, movement };
+    return {
+      product: updated,
+      movement,
+    };
   });
 
   res.json(result);
