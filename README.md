@@ -12,6 +12,11 @@
 
 ---
 
+## 🌐 Live Demo
+
+**🔗 [https://dukaan-book-eight.vercel.app**](https://dukaan-book-eight.vercel.app/)
+
+
 ## 🎯 About
 
 DukaanBook is a production-grade point-of-sale and inventory management system designed for small businesses — retail shops, kirana stores, restaurants, electronics shops. It handles the core operational realities of a real retail counter: multiple cashiers ringing up simultaneous transactions without overselling stock, sequential daily sale numbers for tax reconciliation, atomic stock movements with reason codes, refunds that restore inventory, and a complete audit trail capturing every action with the actor's IP. The frontend uses an emerald accent (distinct visual identity tied to the money/transactions domain), dark mode default, Geist Sans/Mono typography, and a categorized sidebar — designed to feel like a real cashier tool, not a generic admin panel.
@@ -191,7 +196,7 @@ Each project in my portfolio has a distinct color identity tied to its domain �
 ### Clone
 
 ```bash
-git clone https://github.com/Haseebaleem/DukaanBook.git
+git clone https://github.com/Er-Fenil-pethani/DukaanBook.git
 cd DukaanBook
 ```
 
@@ -239,8 +244,9 @@ The seed script creates two pre-configured accounts:
 
 | Role | Email | Password |
 |------|-------|----------|
-| Owner | `owner@demo.local` | `Owner123!` |
-| Cashier | `cashier@demo.local` | `Cashier123!` |
+| Owner | `owner@demo.local` | `00000000` |
+| Cashier 1 | `cashier1@demo.local` | `00000000` |
+| Cashier 2 | `cashier2@demo.local` | `00000000` |
 
 Plus 5 categories, 20 sample products with realistic stock distribution (low-stock items visible on dashboard), and one configured business profile.
 
@@ -409,13 +415,13 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 ## 👤 Author
 
-**Haseeb Aleem**
-Senior Full Stack Developer & Team Lead
+Fenil Pethani
+Backend Developer
 
-- 💼 **LinkedIn:** [linkedin.com/in/haseeb-aleem-dev](https://www.linkedin.com/in/haseeb-aleem-dev/)
-- 💻 **GitHub:** [github.com/Haseebaleem](https://github.com/Haseebaleem)
-- 📧 **Email:** haseebaleem2802@gmail.com
-- 📍 **Location:** Multan, Pakistan (Open to Saudi Arabia & GCC relocation)
+- 💼 **LinkedIn:** [linkedin.com/in/fenil-pethani](https://www.linkedin.com/in/fenil-pethani/)
+- 💻 **GitHub:** [github.com/Er-Fenil-pethani](https://github.com/Er-Fenil-pethani)
+- 📧 **Email:** fenilpethani2020@gmail.com
+- 📍 **Location:** Ahmedabad, Gujarat
 
 ---
 
